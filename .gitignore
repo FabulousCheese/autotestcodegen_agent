@@ -1,0 +1,30 @@
+# 虚拟环境
+automatic-agent/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# 本地配置
+.env
+.env.local
+
+# 日志
+logs/
+*.log
+
+# 生成的文件
+generated_tests/
+reports/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
