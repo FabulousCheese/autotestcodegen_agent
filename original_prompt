@@ -1,0 +1,21 @@
+你好啊我想实现一个 agent测试助手
+项目概念：智能测试助手 / 自动化代码助手
+功能模块示例：
+测试用例生成 Agent
+输入：函数/模块接口或需求说明
+输出：测试用例（Python unittest / Pytest 风格）
+测试执行 Agent
+自动运行测试，收集结果
+缺陷分析 Agent
+日志分析 → 预测可能 Bug / 根因定位
+报告生成 Agent
+输出 Markdown / HTML 测试报告
+技术栈：
+Python + FastAPI (服务化接口)
+LLM (OpenAI / LLaMA / ChatGLM)
+RAG 检索（历史代码库、文档）
+多 Agent 调度 → 可以用你之前 ReAct/Thought-Action-Observation 思路
+亮点展示：
+流程可视化：展示每一步 Agent 决策
+多步回退/重试：模拟真实业务场景
+支持多种工具调用：代码生成、日志解析、统计计算
