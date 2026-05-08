@@ -408,6 +408,17 @@ async def run_test_flow(request: GenerateTestsRequest):
     
     tests = gen_result.get("result", {}).get("tests", "")
     
+    # 保存测试代码到文件
+    func_match = re.search(r'def\s+(\w+)\s*\(', request.code)
+    func_name = func_match.group(1) if func_match else "test"
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "generated_tests")
+    os.makedirs(output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_path = os.path.join(output_dir, f"test_{func_name}_{timestamp}.py")
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(tests)
+    gen_result["result"]["file_path"] = file_path
+    
     # 2. 执行测试
     executor = _scheduler.agents.get("TestExecutor")
     if executor:

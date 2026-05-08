@@ -19,6 +19,39 @@ TEST_GENERATION_PROMPT = """你是一个专业的测试工程师。请为以下�
 3. 每个测试用例要有明确的断言
 4. 使用 pytest 框架
 5. 只输出测试代码，不要解释
+6. 每个测试函数的 docstring 第一行必须标注测试类型，格式为：[测试类型: xxx]
+
+重要：浮点数断言规则
+- 禁止使用 == 精确比较浮点数结果！
+- 必须导入 math 模块并使用以下方法：
+  * 对于浮点数比较：使用 math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-12)
+  * 对于 NaN 检查：使用 math.isnan(value) 而非 value == float('nan')
+  * 对于无穷大检查：使用 math.isinf(value) 而非 value == float('inf')
+- 例如：assert math.isclose(divide(1, 3), 0.333333333, rel_tol=1e-9)
+
+测试类型定义：
+- [测试类型: 正常测试] - 测试函数的常规、预期行为
+- [测试类型: 边界测试] - 测试边界值、极端情况
+- [测试类型: 异常测试] - 测试异常输入、错误处理
+- [测试类型: 精度测试] - 测试数值精度、浮点计算
+- [测试类型: 类型测试] - 测试类型转换、类型边界
+- [测试类型: 参数化测试] - 使用 @pytest.mark.parametrize 的参数化测试
+
+示例格式：
+```python
+import math
+
+def test_divide_positive_numbers():
+    """[测试类型: 正常测试] 测试两个正数相除
+    """
+    assert math.isclose(divide(1, 3), 0.333333333, rel_tol=1e-9)
+
+def test_divide_with_nan():
+    """[测试类型: 边界测试] 测试 NaN 结果
+    """
+    result = divide(float('inf'), float('inf'))
+    assert math.isnan(result), f"期望 NaN，实际得到 {result}"
+```
 
 代码：
 {code}
@@ -78,6 +111,10 @@ class TestGeneratorAgent(ReActAgent):
                 if tests_code.startswith("```"):
                     tests_code = re.sub(r'^```\w*\n?', '', tests_code)
                     tests_code = re.sub(r'\n?```$', '', tests_code)
+                
+                # 后处理：修复浮点数断言问题
+                from core.tools.code_tools import fix_floating_point_assertions
+                tests_code = fix_floating_point_assertions(tests_code)
                 
                 # 统计测试数量
                 test_count = len(re.findall(r'def test_\w+\(', tests_code))

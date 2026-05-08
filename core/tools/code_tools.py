@@ -5,7 +5,7 @@ import tempfile
 import os
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from loguru import logger
 
 from .base import ToolResult
@@ -217,14 +217,21 @@ async def execute_tests_tool(
                     execution_time=time.time() - start_time,
                 )
             
+            passed_count = _parse_passed_count(result.stdout)
+            failed_count = _parse_failed_count(result.stdout)
+            passed_tests = _parse_test_names(result.stdout, passed=True)
+            failed_tests = _parse_test_names(result.stdout, passed=False)
+            
             return ToolResult(
                 success=result.returncode == 0,
                 result={
                     "stdout": result.stdout,
                     "stderr": result.stderr,
                     "return_code": result.returncode,
-                    "passed": _parse_passed_count(result.stdout),
-                    "failed": _parse_failed_count(result.stdout),
+                    "passed": passed_count,
+                    "failed": failed_count,
+                    "passed_tests": passed_tests,
+                    "failed_tests": failed_tests,
                 },
                 execution_time=time.time() - start_time,
             )
@@ -257,6 +264,24 @@ def _parse_failed_count(output: str) -> int:
     """解析失败的测试数量"""
     match = re.search(r'(\d+) failed', output)
     return int(match.group(1)) if match else 0
+
+
+def _parse_test_names(output: str, passed: bool = True) -> List[str]:
+    """解析通过的测试名称列表"""
+    test_names = []
+    # pytest -v 输出格式: test_file.py::test_name[params] PASSED
+    # 支持参数化测试: test_divide_normal[6-3-2.0] PASSED
+    status = "PASSED" if passed else "FAILED"
+    
+    for line in output.split('\n'):
+        line = line.strip()
+        if status in line:
+            # 提取测试名称，支持参数化测试格式: test_xxx 或 test_xxx[params]
+            match = re.search(r'::((?:test_\w+)(?:\[[^\]]+\])?)\s+' + status, line)
+            if match:
+                test_names.append(match.group(1))
+    
+    return test_names
 
 
 async def analyze_logs_tool(
@@ -443,3 +468,78 @@ def _generate_coverage_recommendations(coverage: int) -> list:
         return ["覆盖率一般", "建议增加异常情况测试", "增加边界值测试"]
     else:
         return ["覆盖率不足", "建议大幅增加测试用例", "优先覆盖核心函数"]
+
+
+def fix_floating_point_assertions(tests_code: str) -> str:
+    """
+    修复测试代码中的浮点数断言问题
+    
+    将不健壮的浮点数断言转换为使用 math.isclose() 的健壮断言：
+    1. 将 `assert x == float_value` 转换为 `assert math.isclose(x, float_value)`
+    2. 将 `assert x == float('nan')` 转换为 `assert math.isnan(x)`
+    3. 将 `assert x == float('inf')` 转换为 `assert math.isinf(x)`
+    
+    Args:
+        tests_code: 测试代码字符串
+        
+    Returns:
+        修复后的测试代码
+    """
+    import math
+    
+    # 确保导入 math 模块
+    if 'import math' not in tests_code and 'from math import' not in tests_code:
+        # 在第一个 import 语句后添加，或在文件开头添加
+        if 'import pytest' in tests_code:
+            tests_code = tests_code.replace('import pytest', 'import math\nimport pytest', 1)
+        elif 'import unittest' in tests_code:
+            tests_code = tests_code.replace('import unittest', 'import math\nimport unittest', 1)
+        else:
+            tests_code = 'import math\n\n' + tests_code
+    
+    # 使用简单的字符串查找和替换方法处理特殊浮点值
+    lines = tests_code.split('\n')
+    result_lines = []
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        # 跳过已经使用 math 函数检查的行
+        if 'math.isnan' in stripped or 'math.isinf' in stripped or 'math.isclose' in stripped:
+            result_lines.append(line)
+            continue
+        
+        # 处理 NaN 断言: assert ... == float('nan') 或 float("nan")
+        if "== float('nan')" in stripped or '== float("nan")' in stripped:
+            # 提取等号左边的表达式
+            if '==' in stripped:
+                parts = stripped.split('==')
+                left_expr = parts[0].replace('assert', '').strip()
+                line = f'    assert math.isnan({left_expr})'
+        
+        # 处理 Infinity 断言: assert ... == float('inf') 或 float("inf")
+        elif "== float('inf')" in stripped or '== float("inf")' in stripped:
+            if '==' in stripped:
+                parts = stripped.split('==')
+                left_expr = parts[0].replace('assert', '').strip()
+                line = f'    assert math.isinf({left_expr})'
+        
+        # 处理浮点数精确比较: assert expr == number_with_decimal_or_scientific
+        elif '==' in stripped and stripped.startswith('assert'):
+            try:
+                # 提取等号两边的部分
+                parts = stripped.split('==')
+                if len(parts) == 2:
+                    left_expr = parts[0].replace('assert', '').strip()
+                    right_value = parts[1].strip()
+                    
+                    # 检查右边是否是数值（包含小数点或科学计数法）
+                    if re.match(r'^-?\d+\.\d+([eE][+-]?\d+)?$', right_value) or \
+                       re.match(r'^-?\d+[eE][+-]?\d+$', right_value):
+                        line = f'    assert math.isclose({left_expr}, {right_value}, rel_tol=1e-9, abs_tol=1e-12)'
+            except:
+                pass
+        
+        result_lines.append(line)
+    
+    return '\n'.join(result_lines)
