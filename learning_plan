@@ -1,0 +1,28 @@
+第1周：CI/CD 集成（优先级最高）
+目标：让测试系统与 GitHub Actions 集成
+
+日期	内容	产出
+Day 1-2	GitHub Actions 基础语法	.github/workflows/ci.yml
+Day 3-4	Webhook 触发机制	接收 PR 事件自动触发测试
+Day 5-7	实现 PR 评论功能	自动在 PR 下评论测试结果
+
+第2周：测试评估体系
+目标：量化评估 AI 测试生成质量
+
+日期	内容	产出
+Day 1-2	设计评估指标（覆盖率、通过率、漏检率）	metrics.py
+Day 3-4	实现 Baseline 对比	规则生成 vs LLM 生成对比报告
+Day 5-7	构建测试集 benchmark	人工构造 50+ 测试用例作为标准
+
+第3周：缺陷预测
+目标：测试前预测代码风险区域
+日期	内容	产出
+Day 1-2	代码复杂度分析	risk_analyzer.py
+Day 3-4	变更风险评估	diff 分析高风险文件
+Day 5-7	LLM 辅助缺陷预测	高风险代码段优先测试
+
+第4周：简历 & 面试准备
+日期	内容
+Day 1-2	更新简历，补充新技能
+Day 3-4	准备面试问题（Agent 设计、测试策略）
+Day 5-7	项目演示文档
